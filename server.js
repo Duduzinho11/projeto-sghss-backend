@@ -1,4 +1,3 @@
-// server.js - Backend do Projeto SGHSS
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -8,86 +7,106 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// --- DADOS EM MEMÓRIA (SIMULAÇÃO DE BANCO DE DADOS) ---
-// Isso permite que o projeto rode sem configurar MySQL agora.
-const usuarios = []; 
-const pacientes = [];
-const SECRET_KEY = 'minha-chave-secreta-projeto-uninter'; // Em projeto real, vai no .env
+// Configuração simples para o projeto
+const PORTA = 3000;
+const SEGREDO_JWT = 'chave_secreta_do_projeto_sghss_2025'; 
 
-// --- FUNÇÕES AUXILIARES ---
-// Criar um usuário administrador padrão ao iniciar
-const criarAdmin = async () => {
-    const senhaHash = await bcrypt.hash('123456', 8);
-    usuarios.push({ id: 1, email: 'admin@vidaplus.com', senha: senhaHash });
-    console.log('Usuário Admin criado: admin@vidaplus.com / 123456');
-};
-criarAdmin();
+// Arrays simulando o banco de dados (MySQL estava dando erro de conexão)
+let usuariosDB = [];
+let pacientesDB = [];
 
-// --- ENDPOINTS (ROTAS) ---
+// Função para criar o admin automaticamente ao iniciar
+async function popularBanco() {
+    const senhaCriptografada = await bcrypt.hash('123456', 10);
+    
+    usuariosDB.push({
+        id: 1,
+        email: 'admin@vidaplus.com',
+        senha: senhaCriptografada
+    });
+    
+    console.log('--- Sistema iniciado ---');
+    console.log('Login Admin pronto: admin@vidaplus.com');
+}
 
-// 1. Rota de Login (Autenticação) - Requisito Obrigatório
+popularBanco();
+
+// ROTA 1: LOGIN
 app.post('/login', async (req, res) => {
+    console.log('Tentativa de login recebida:', req.body.email); // Log para debugar
+
     const { email, senha } = req.body;
-    
-    // Busca usuário
-    const user = usuarios.find(u => u.email === email);
-    if (!user) {
-        return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
+
+    if (!email || !senha) {
+        return res.status(400).json({ erro: 'Precisa mandar email e senha!' });
     }
 
-    // Verifica senha (Criptografia)
-    const senhaValida = await bcrypt.compare(senha, user.senha);
-    if (!senhaValida) {
-        return res.status(401).json({ erro: 'Usuário ou senha inválidos' });
+    const usuarioEncontrado = usuariosDB.find(user => user.email === email);
+
+    if (!usuarioEncontrado) {
+        return res.status(401).json({ erro: 'Email não cadastrado.' });
     }
 
-    // Gera Token JWT
-    const token = jwt.sign({ id: user.id, email: user.email }, SECRET_KEY, { expiresIn: '1h' });
-    
-    return res.json({ 
-        mensagem: 'Autenticação realizada com sucesso',
-        token: token 
+    // Comparar a senha enviada com a do banco
+    const senhaBateu = await bcrypt.compare(senha, usuarioEncontrado.senha);
+
+    if (!senhaBateu) {
+        return res.status(401).json({ erro: 'Senha incorreta.' });
+    }
+
+    // Se deu tudo certo, gera o token
+    const token = jwt.sign(
+        { id: usuarioEncontrado.id, email: usuarioEncontrado.email },
+        SEGREDO_JWT,
+        { expiresIn: '2h' }
+    );
+
+    return res.json({
+        auth: true,
+        token: token,
+        usuario: usuarioEncontrado.email
     });
 });
 
-// 2. Rota para Listar Pacientes (CRUD - Read)
-app.get('/pacientes', (req, res) => {
-    // Aqui você poderia adicionar verificação de token se quisesse ser mais rigoroso
-    res.json(pacientes);
-});
-
-// 3. Rota para Cadastrar Paciente (CRUD - Create)
+// ROTA 2: CADASTRAR PACIENTE
 app.post('/pacientes', (req, res) => {
+    console.log('Cadastrando novo paciente:', req.body.nome);
+
     const { nome, cpf, telefone } = req.body;
 
+    // Validação básica
     if (!nome || !cpf) {
-        return res.status(400).json({ erro: 'Nome e CPF são obrigatórios' });
+        return res.status(400).json({ erro: 'Nome e CPF são obrigatórios.' });
     }
 
     const novoPaciente = {
-        id: pacientes.length + 1,
-        nome,
-        cpf,
-        telefone,
-        data_cadastro: new Date()
+        id: pacientesDB.length + 1,
+        nome: nome,
+        cpf: cpf,
+        telefone: telefone || 'Não informado',
+        dataCadastro: new Date()
     };
 
-    pacientes.push(novoPaciente);
-    
-    res.status(201).json({ 
-        mensagem: 'Paciente cadastrado com sucesso!', 
-        paciente: novoPaciente 
+    pacientesDB.push(novoPaciente);
+
+    return res.status(201).json({
+        msg: 'Paciente salvo com sucesso.',
+        dados: novoPaciente
     });
 });
 
-// Rota de teste inicial
-app.get('/', (req, res) => {
-    res.send('API do SGHSS rodando perfeitamente!');
+// ROTA 3: LISTAR PACIENTES
+app.get('/pacientes', (req, res) => {
+    // Retorna a lista inteira
+    console.log('Listagem de pacientes solicitada.');
+    return res.json(pacientesDB);
 });
 
-// --- INICIALIZAÇÃO DO SERVIDOR ---
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
-    console.log(`Acesse http://localhost:${PORT}`);
+// Rota só pra testar se servidor ta de pé
+app.get('/', (req, res) => {
+    res.send('Backend SGHSS rodando...');
+});
+
+app.listen(PORTA, () => {
+    console.log(`Servidor rodando na porta ${PORTA}`);
 });
