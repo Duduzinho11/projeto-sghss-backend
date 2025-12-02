@@ -107,11 +107,6 @@ app.get('/pacientes', (req, res) => {
 app.get('/', (req, res) => {
     res.send('Backend SGHSS rodando...');
 });
-
-app.listen(PORTA, () => {
-    console.log(`Servidor rodando na porta ${PORTA}`);
-});
-
 // ROTA 4: AGENDAR CONSULTA
 app.post('/consultas', (req, res) => {
     // Log pra ver o que está chegando na requisição
@@ -157,3 +152,4 @@ app.get('/consultas', (req, res) => {
 app.listen(PORTA, () => {
     console.log(`Servidor rodando na porta ${PORTA}`);
 });
+
