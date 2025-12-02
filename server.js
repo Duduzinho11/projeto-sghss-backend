@@ -14,6 +14,7 @@ const SEGREDO_JWT = 'chave_secreta_do_projeto_sghss_2025';
 // Arrays simulando o banco de dados (MySQL estava dando erro de conexão)
 let usuariosDB = [];
 let pacientesDB = [];
+let consultasDB = [];
 
 // Função para criar o admin automaticamente ao iniciar
 async function popularBanco() {
@@ -107,6 +108,52 @@ app.get('/', (req, res) => {
     res.send('Backend SGHSS rodando...');
 });
 
+app.listen(PORTA, () => {
+    console.log(`Servidor rodando na porta ${PORTA}`);
+});
+
+// ROTA 4: AGENDAR CONSULTA
+app.post('/consultas', (req, res) => {
+    // Log pra ver o que está chegando na requisição
+    console.log('Tentando agendar consulta...', req.body);
+
+    const { paciente_id, medico, data_horario } = req.body;
+
+    // Se não tiver ID ou data, nem continua
+    if (!paciente_id || !data_horario) {
+        return res.status(400).json({ erro: 'Favor informar paciente_id e data_horario' });
+    }
+
+    // Busca o paciente na lista (usei == pra funcionar mesmo se vier como string)
+    const pacienteEncontrado = pacientesDB.find(p => p.id == paciente_id);
+
+    if (!pacienteEncontrado) {
+        return res.status(404).json({ erro: 'Paciente não cadastrado!' });
+    }
+
+    // Monta o objeto pra salvar
+    const novaConsulta = {
+        id: consultasDB.length + 1,
+        paciente_id: pacienteEncontrado.id,
+        nome: pacienteEncontrado.nome, // peguei o nome pra facilitar na tela
+        medico: medico ? medico : 'Clínico Geral', // se não mandar médico, vai pro geral
+        data: data_horario,
+        status: 'Agendada'
+    };
+
+    consultasDB.push(novaConsulta);
+
+    return res.status(201).json({
+        msg: 'Agendamento realizado.',
+        consulta: novaConsulta
+    });
+});
+
+// ROTA 5: LISTAR CONSULTAS
+app.get('/consultas', (req, res) => {
+    // Só pra conferir se gravou
+    res.json(consultasDB);
+});
 app.listen(PORTA, () => {
     console.log(`Servidor rodando na porta ${PORTA}`);
 });
